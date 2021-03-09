@@ -179,6 +179,9 @@ function main(context) {
     // We need Vortex 1.4.3+
     context.requireVersion('^1.4.3');
 
+    // Require the plugin management extension. 
+    context.requireExtension('gamebryo-plugin-management');
+
     context.registerGame({
         id: GAME_ID,
         name: 'Enderal Special Edition',
