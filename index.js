@@ -1,4 +1,4 @@
-const { actions, fs, log, selectors, util } = require('vortex-api');
+const { fs, log, selectors, util } = require('vortex-api');
 const path = require('path');
 
 const GAME_ID = 'enderalspecialedition';
@@ -68,7 +68,7 @@ const tools = [
         requiredFiles: [
             'Enderal Launcher.exe' 
         ],
-        logo: 'launcher-icon.jpg',
+        logo: 'launcher-icon.png',
         relative: true,
         exclusive: true
     }
@@ -77,10 +77,6 @@ const tools = [
 function findGame() {
     return util.GameStoreHelper.findByAppId([STEAMAPP_ID])
         .then(game => game.gamePath);
-}
-
-async function prepareForModding(discovery, api) {
-    return testMissingMods(api, discovery.path);
 }
 
 function missingModsModal(api, missingDependencies, dismiss) {
@@ -134,15 +130,16 @@ function testMandatoryPlugins(api) {
 
 }
 
-async function testMissingMods(api, gamePath) {
+async function testMissingMods(api) {
+    // Clear a previous version of this notification. 
+    api.dismissNotification('enderal-missing-mods');
+
     const state = api.store.getState();
     // Wrong game!
     if (selectors.activeGameId(state) !== GAME_ID) return Promise.resolve(undefined);
-    
-    if (!gamePath) {
-        gamePath = util.getSafe(state ['settings', 'gameMode', 'disovered', GAME_ID, path], undefined);
-        if (!gamePath) return Promise.resolve(undefined);
-    }
+
+    const gamePath = util.getSafe(state, ['settings', 'gameMode', 'discovered', GAME_ID, 'path'], undefined);
+    if (!gamePath) return Promise.resolve(undefined);
 
     const missingDependencies = [];
 
@@ -174,7 +171,6 @@ async function testMissingMods(api, gamePath) {
             ]
         })
     }
-    else api.dismissNotification('enderal-missing-mods');
     
     return Promise.resolve(); 
 }
@@ -190,7 +186,6 @@ function main(context) {
         shortName: 'Enderal SE',
         mergeMods: true,
         queryPath: findGame,
-        setup: (discovery) => prepareForModding(discovery, context.api),
         queryModPath: () => 'data',
         logo: 'gameart.jpg',
         executable: () => 'SkyrimSE.exe',
@@ -209,8 +204,13 @@ function main(context) {
     context.registerTest('enderal-se-plugins', 'plugins-changed', () => testMandatoryPlugins(context.api));
     context.registerTest('enderal-se-plugins', 'loot-info-updated', () => testMandatoryPlugins(context.api));
 
-    // Register check on missing mods.
-    context.registerTest('enderal-se-dependences', 'gamemode-activated', () => testMissingMods(context.api, undefined));
+    // Register check on missing mods both when we start managing the game.
+    context.registerTest('enderal-se-dependences', 'gamemode-activated', () => testMissingMods(context.api));
+
+    context.once(() => {
+        // Check missing mods after deploying.
+        context.api.onAsync('did-deploy', () => testMissingMods(context.api));
+    });
 
     return true;
 
