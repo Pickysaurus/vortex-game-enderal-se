@@ -1,8 +1,11 @@
-const { fs, log, util } = require('vortex-api');
+const { actions, fs, log, selectors, util } = require('vortex-api');
 const path = require('path');
 
 const GAME_ID = 'enderalspecialedition';
 const STEAMAPP_ID = '976620';
+
+const ENDERAL_ESM = 'Enderal - Forgotten Stories.esm';
+const SKYUI_ESP = 'SkyUI_SE.esp';
 
 // Files needed for Enderal to run correctly.
 // const requiredFiles = [
@@ -77,8 +80,69 @@ function findGame() {
 }
 
 async function prepareForModding(discovery, api) {
+    return testMissingMods(api, discovery.path);
+}
 
-    const enderalPath = discovery.path;
+function missingModsModal(api, missingDependencies, dismiss) {
+    api.showDialog('warn', 'Enderal Dependencies Missing', {
+        bbcode: 'Enderal Special Edition requires several mods to be installed before it will work correctly. Vortex detected the following mods as missing: <br /><br />'+
+        missingDependencies.map(mod => `- [url=${mod.url}]${mod.name}[/url]<br />`).join('<br/>')+
+        '<br /><br />You will not be able to start playing Enderal until these mods have been installed.'
+    },[
+        {
+            label: 'Check again',
+            action: () => testMissingMods(api, undefined),
+        },
+        {
+            label: 'Close',
+            action: () => dismiss(),
+        }
+    ])
+}
+
+function testMandatoryPlugins(api) {
+    // Ensure that Enderal and SkyUI plugins are enabled.
+    const state = api.store.getState();
+
+    // Wrong game.
+    if (selectors.activeGameId(state) !== GAME_ID) return Promise.resolve(undefined);
+
+    const pluginInfo = util.getSafe(state, ['session', 'plugins', 'pluginInfo'], {});
+
+    if (!pluginInfo) return Promise.resolve(undefined);
+
+    const enderalMaster = util.getSafe(pluginInfo, [ENDERAL_ESM.toLowerCase()], undefined);
+    const skyUIPlugin = util.getSafe(pluginInfo, [SKYUI_ESP.toLowerCase()], undefined);
+
+    if (enderalMaster && !enderalMaster.enabled) {
+        log('info', 'Force-enabling required plugin', ENDERAL_ESM);
+        api.store.dispatch({ type: 'SET_PLUGIN_ENABLED', payload: {
+            pluginName: ENDERAL_ESM.toLowerCase(), 
+            enabled: true}
+        });
+    }
+
+    if (skyUIPlugin && !skyUIPlugin.enabled) {
+        log('info', 'Force-enabling required plugin', SKYUI_ESP);
+        api.store.dispatch({ type: 'SET_PLUGIN_ENABLED', payload: {
+            pluginName: SKYUI_ESP.toLowerCase(), 
+            enabled: true}
+        });
+    }
+
+    return Promise.resolve(undefined);
+
+}
+
+async function testMissingMods(api, gamePath) {
+    const state = api.store.getState();
+    // Wrong game!
+    if (selectors.activeGameId(state) !== GAME_ID) return Promise.resolve(undefined);
+    
+    if (!gamePath) {
+        gamePath = util.getSafe(state ['settings', 'gameMode', 'disovered', GAME_ID, path], undefined);
+        if (!gamePath) return Promise.resolve(undefined);
+    }
 
     const missingDependencies = [];
 
@@ -86,12 +150,12 @@ async function prepareForModding(discovery, api) {
 
     for (const key of fileKeys) {
         const check = fileChecks[key];
-        const checkPath = path.join(enderalPath, check.relPath);
+        const checkPath = path.join(gamePath, check.relPath);
         try {
             await fs.statAsync(checkPath);
         }
         catch (err) {
-            log('warn', 'Missing required file for Enderal SE', checkPath)
+            log('warn', 'Missing required file for Enderal SE', checkPath);
             missingDependencies.push(check);
         }
     };
@@ -110,21 +174,9 @@ async function prepareForModding(discovery, api) {
             ]
         })
     }
+    else api.dismissNotification('enderal-missing-mods');
     
     return Promise.resolve(); 
-}
-
-function missingModsModal(api, missingDependencies, dismiss) {
-    api.showDialog('warn', 'Enderal Dependencies Missing', {
-        bbcode: 'Enderal Special Edition requires several mods to be installed before it will work correctly. Vortex detected the following mods as missing: <br /><br />'+
-        missingDependencies.map(mod => `- [url=${mod.url}]${mod.name}[/url]<br />`).join('<br/>')+
-        '<br /><br />You will not be able to start playing Enderal until these mods have been installed.'
-    },[
-        {
-            label: 'Close',
-            action: () => dismiss(),
-        }
-    ])
 }
 
 function main(context) {
@@ -152,6 +204,13 @@ function main(context) {
             steamAppId: STEAMAPP_ID
         }
     });
+
+    // Register checks on required plugins when plugins are changed.
+    context.registerTest('enderal-se-plugins', 'plugins-changed', () => testMandatoryPlugins(context.api));
+    context.registerTest('enderal-se-plugins', 'loot-info-updated', () => testMandatoryPlugins(context.api));
+
+    // Register check on missing mods.
+    context.registerTest('enderal-se-dependences', 'gamemode-activated', () => testMissingMods(context.api, undefined));
 
     return true;
 
