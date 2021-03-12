@@ -44,6 +44,12 @@ const fileChecks = {
         relPath: path.join('Data', 'SKSE', 'Plugins', 'FlatMapMarkersSSE.dll'),
         url: 'https://www.nexusmods.com/skyrimspecialedition/mods/22122',
         name: 'FlatMapMarkers'
+    },
+    'Dragonborn.esm': {
+        relPath: path.join('Data', 'Dragonborn.esm'),
+        url: 'https://www.nexusmods.com/enderalspecialedition/mods/1',
+        name: 'Skyrim DLC Placeholders',
+        type: 'PLACEHOLDER'
     }
 }
 
@@ -149,11 +155,22 @@ async function testMissingMods(api) {
         const check = fileChecks[key];
         const checkPath = path.join(gamePath, check.relPath);
         try {
-            await fs.statAsync(checkPath);
+            const stats = await fs.statAsync(checkPath);
+            if (check.type === 'PLACEHOLDER' && stats.size > 100) {
+                // An extra check for DLC placeholders
+                throw new Error('DLC placeholders are missing');
+            }
         }
         catch (err) {
-            log('warn', 'Missing required file for Enderal SE', checkPath);
-            missingDependencies.push(check);
+            if (err.code === 'ENOENT' && check.type !== 'PLACEHOLDER') {
+                log('warn', 'Missing required file for Enderal SE', checkPath);
+                missingDependencies.push(check);
+            }
+            else if (check.type === 'PLACEHOLDER' && err.code !== 'ENOENT') {
+                log('warn', 'Missing DLC placeholder for Enderal SE', checkPath);
+                missingDependencies.push(check);
+            }
+            else log('warn', 'Unexpected error processing Enderal SE dependencies', err, checkPath);
         }
     };
 
