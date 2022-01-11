@@ -1,4 +1,5 @@
 const { fs, log, selectors, util } = require('vortex-api');
+const { getFileVersion, getFileVersionLocalized } = require('exe-version');
 const path = require('path');
 
 const GAME_ID = 'enderalspecialedition';
@@ -178,6 +179,20 @@ async function testMissingMods(api) {
     return Promise.resolve(); 
 }
 
+function getGameVersion(gamePath, exePath) {
+    // Enderal's "true" version is different, but it's not posted anywhere useful that can be retrieved programatically.
+    // We could try to regex the 'Enderal SE v2.0.11 Changelog.txt` file name, but there's no guarantee they won't arbitrarily remove/rename that file. 
+    // Really, we only care about the Skyrim SE version for now as it makes a difference for xSE mods. 
+    const fullPath = path.join(gamePath, exePath);
+    let exeVersion = getFileVersion(fullPath);
+    // Skyrim SE 1.5.97 doesn't show its version properly.
+    if (exeVersion === '1.0.0.0' && !!getFileVersionLocalized) {
+        exeVersion = getFileVersionLocalized(fullPath)
+    }
+
+    return Promise.resolve(exeVersion);
+}
+
 function main(context) {
     // We need Vortex 1.4.3+
     context.requireVersion('^1.4.3');
@@ -195,6 +210,7 @@ function main(context) {
         queryModPath: () => 'data',
         logo: 'gameart.jpg',
         executable: () => 'SkyrimSE.exe',
+        getGameVersion,
         requiredFiles: [
             "SkyrimSE.exe"
         ],
