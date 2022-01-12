@@ -181,7 +181,7 @@ async function testMissingMods(api) {
 
 function getGameVersion(gamePath, exePath) {
     // Enderal's "true" version is different, but it's not posted anywhere useful that can be retrieved programatically.
-    // We could try to regex the 'Enderal SE v2.0.11 Changelog.txt` file name, but there's no guarantee they won't arbitrarily remove/rename that file. 
+    // We could try to regex the 'Enderal SE v2.0.11 Changelog.txt' file name, but there's no guarantee they won't arbitrarily remove/rename that file. 
     // Really, we only care about the Skyrim SE version for now as it makes a difference for xSE mods. 
     const fullPath = path.join(gamePath, exePath);
     let exeVersion = getFileVersion(fullPath);
@@ -219,7 +219,11 @@ function main(context) {
         },
         details: {
             steamAppId: STEAMAPP_ID
-        }
+        },
+        compatibleDownloads: [
+            'skyrimse', 
+            'skyrimspecialedition'
+        ]
     });
 
     // Register checks on required plugins when plugins are changed.
