@@ -218,12 +218,12 @@ function main(context) {
             symlinks: false
         },
         details: {
-            steamAppId: STEAMAPP_ID
+            steamAppId: STEAMAPP_ID,
+            compatibleDownloads: [
+                'skyrimse', 
+                'skyrimspecialedition'
+            ]
         },
-        compatibleDownloads: [
-            'skyrimse', 
-            'skyrimspecialedition'
-        ]
     });
 
     // Register checks on required plugins when plugins are changed.
