@@ -231,7 +231,7 @@ function main(context) {
     context.registerTest('enderal-se-plugins', 'loot-info-updated', () => testMandatoryPlugins(context.api));
 
     // Register check on missing mods both when we start managing the game.
-    context.registerTest('enderal-se-dependences', 'gamemode-activated', () => testMissingMods(context.api));
+    // context.registerTest('enderal-se-dependences', 'gamemode-activated', () => testMissingMods(context.api));
 
     context.once(() => {
         // Check missing mods after deploying.
